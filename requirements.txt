@@ -1,0 +1,8 @@
+Flask
+requests
+beautifulsoup4
+nltk
+qrcode
+whois
+pdfkit
+gunicorn

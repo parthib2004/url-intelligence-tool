@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Intelligence Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="starfield"></div>
+    <div class="container">
+        <h1>🔍 URL Intelligence Tool</h1>
+        <form action="{{ url_for('index') }}" method="POST" id="analyzeForm">
+            <input type="text" name="url" placeholder="Enter any URL to analyze..." required>
+            <button type="submit">Analyze URL</button>
+        </form>
+        <div class="loader"></div>
+
+        {% if result %}
+        <div class="reset-container">
+            <a href="{{ url_for('index') }}" class="reset-button">New Analysis</a>
+        </div>
+        <div class="results">
+            <h2>Analysis Results for {{ result.domain }}</h2>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="ai-summary">🤖 AI Analysis</button>
+                <button class="tab" data-tab="metadata">📄 Metadata</button>
+                <button class="tab" data-tab="domain">🌐 Domain</button>
+                <button class="tab" data-tab="security">🛡️ Security</button>
+                <button class="tab" data-tab="server">📡 Server</button>
+            </div>
+
+            <div class="tab-content active" id="ai-summary">
+                <div class="info-card ai-summary">
+                    <h3>🤖 AI Content Analysis</h3>
+                    
+                    <div class="summary-section">
+                        <h4>Content Summary</h4>
+                        <p class="summary-text">{{ result.metadata.ai_summary }}</p>
+                    </div>
+
+                    <div class="summary-section">
+                        <h4>Key Topics</h4>
+                        <div class="topic-tags">
+                            {% for keyword in result.metadata.keywords %}
+                                <span class="topic-tag">{{ keyword }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="summary-section">
+                        <h4>Content Stats</h4>
+                        {% if result.metadata.word_count >= 10 %}
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Content Type</span>
+                                <span class="stat-value">{{ result.metadata.content_type }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Word Count</span>
+                                <span class="stat-value">{{ result.metadata.word_count }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Sentences</span>
+                                <span class="stat-value">{{ result.metadata.sentence_count }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Readability</span>
+                                <span class="stat-value">{{ result.metadata.readability|default('N/A') }}</span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="stat-grid">
+                            <div class="stat-item" style="grid-column: 1 / -1; text-align: center; color: #888;">
+                                Not enough content to analyze statistics.
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if result.tech_stack and result.tech_stack.items()|length > 0 %}
+                    <div class="summary-section">
+                        <h4>🔧 Technology Stack</h4>
+                        <div class="tech-stack">
+                            {% for category, technologies in result.tech_stack.items() %}
+                            {% if technologies|length > 0 %}
+                            <div class="tech-category">
+                                <h5>{{ category }}</h5>
+                                <div class="tech-tags">
+                                    {% for tech in technologies %}
+                                    <span class="tech-tag">{{ tech|default('Unknown')|e }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="tab-content" id="metadata">
+                <div class="info-card">
+                    <h3>📄 Website Metadata</h3>
+                    <!-- Open Graph Card Preview -->
+                    {% if result.metadata.og_title or result.metadata.og_description or result.metadata.og_image %}
+                    <div class="og-card-preview">
+                        {% if result.metadata.og_image %}
+                        <div class="og-card-image">
+                            <img src="{{ result.metadata.og_image }}" alt="Open Graph Image" />
+                        </div>
+                        {% endif %}
+                        <div class="og-card-content">
+                            <div class="og-card-title">{{ result.metadata.og_title|default('No OG Title')|e }}</div>
+                            <div class="og-card-desc">{{ result.metadata.og_description|default('No OG Description')|e }}</div>
+                            <div class="og-card-url">{{ result.url|e }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <!-- End Open Graph Card Preview -->
+                    <p><strong>Page Title</strong> {{ result.metadata.title|default('No title')|e }}</p>
+                    <p><strong>Description</strong> {{ result.metadata.description|default('No description')|e }}</p>
+                    
+                    {% if result.meta_tags and result.meta_tags|length > 0 %}
+                    <div class="meta-section">
+                        <h4>🏷️ Meta Tags</h4>
+                        <div class="meta-tags">
+                            {% for tag in result.meta_tags %}
+                            <div class="meta-tag">
+                                <span class="tag-name">{{ tag.name|default('unnamed')|e }}</span>
+                                <span class="tag-content">{{ tag.content|default('')|truncate(200)|e }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if result.url %}
+                    <form action="{{ url_for('download_pdf') }}" method="post" style="margin-bottom: 1.5rem;">
+                        <input type="hidden" name="url" value="{{ result.url }}">
+                        <button type="submit" class="download-pdf-btn">⬇️ Download PDF Report</button>
+                    </form>
+                    {% endif %}
+
+                    {% if result.qr_code %}
+                    <div class="qr-section">
+                        <h4>📱 QR Code</h4>
+                        <div class="qr-container">
+                            <img src="{{ result.qr_code }}" alt="QR Code for {{ result.url }}" class="qr-code">
+                            <button class="download-qr" onclick="downloadQR()">Download QR Code</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="tab-content" id="domain">
+                <div class="info-card">
+                    <h3>Domain Information</h3>
+                    <div class="domain-info">
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">Trust Score</span>
+                            <div class="domain-stat-value">
+                                <div class="risk-indicator {{ 'risk-low' if result.trust_score >= 80 else ('risk-medium' if result.trust_score >= 50 else 'risk-high') }}">
+                                    {{ 'Trusted Domain' if result.trust_score >= 80 else ('Moderate Risk' if result.trust_score >= 50 else 'High Risk') }}
+                                </div>
+                                <div class="trust-circle"></div>
+                                    <div class="trust-bar" style="width: '{{ result.trust_score }}%'"></div>
+                                        <path d="M18 2.0845
+                                            a 15.9155 15.9155 0 0 1 0 31.831
+                                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none"
+                                            stroke="#eee"
+                                            stroke-width="3"/>
+                                        <path d="M18 2.0845
+                                            a 15.9155 15.9155 0 0 1 0 31.831
+                                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none"
+                                            stroke="{% if result.trust_score >= 80 %}#4caf50{% elif result.trust_score >= 50 %}#ff9800{% else %}#f44336{% endif %}"
+                                            stroke-width="3"
+                                            stroke-dasharray="{{ result.trust_score|default(0) }}, 100"/>
+                                        <text x="18" y="20.35" class="percentage">{{ result.trust_score|default(0) }}%</text>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">Domain Age</span>
+                            <span class="domain-stat-value">{{ result.domain_age|default('Unknown') }}</span>
+                        </div>
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">SSL Certificate</span>
+                            <span class="domain-stat-value">
+                                <div class="risk-indicator {{ 'risk-low' if result.ssl_info else 'risk-high' }}">
+                                    {{ 'SSL Protected' if result.ssl_info else 'No SSL' }}
+                                </div>
+                            </span>
+                        </div>
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">WHOIS Privacy</span>
+                            <span class="domain-stat-value">
+                                <div class="risk-indicator {{ 'risk-medium' if result.whois.private else 'risk-low' }}">
+                                    {{ 'Private Registration' if result.whois.private else 'Public Registration' }}
+                                </div>
+                            </span>
+                        </div>
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">Hosting Type</span>
+                            <span class="domain-stat-value">
+                                <div class="risk-indicator {{ 'risk-medium' if result.is_vps else 'risk-low' }}">
+                                    {{ 'VPS/Cloud Hosting' if result.is_vps else 'Dedicated/Business Hosting' }}
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="domain-info">
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">Registrar</span>
+                            <span class="domain-stat-value">{{ result.whois.registrar|default('Unknown')|e }}</span>
+                        </div>
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">Registered On</span>
+                            <span class="domain-stat-value">{{ result.whois.creation_date|default('Unknown')|e }}</span>
+                        </div>
+                        <div class="domain-stat">
+                            <span class="domain-stat-label">Expires On</span>
+                            <span class="domain-stat-value">{{ result.whois.expiration_date|default('Unknown')|e }}</span>
+                        </div>
+                    </div>
+                    <button class="copy-button" data-content="domain">Copy Info</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="security">
+                <div class="info-card">
+                    <h3>Security Certificate</h3>
+                    {% if result.ssl_info %}
+                    <p><strong>Valid From</strong> {{ result.ssl_info.valid_from|default('Unknown')|e }}</p>
+                    <p><strong>Valid Until</strong> {{ result.ssl_info.valid_to|default('Unknown')|e }}</p>
+                    {% else %}
+                    <p class="no-data">No SSL certificate information available</p>
+                    {% endif %}
+                    
+                    {% if result.redirects and result.redirects|length > 0 %}
+                    <div class="redirect-chain">
+                        <h4>🔄 Redirect Chain</h4>
+                        <div class="redirect-timeline">
+                            {% for redirect in result.redirects %}
+                            <div class="redirect-step {% if redirect.status_code in [301, 302, 303, 307, 308] %}has-next{% endif %}">
+                                <div class="redirect-info">
+                                    <span class="redirect-status {{ 'error' if redirect.status_code == 'Error' else ('warning' if redirect.status_code in [301, 302, 303, 307, 308] else 'success') }}">
+                                        {{ redirect.status_code }}
+                                    </span>
+                                    <span class="redirect-type">{{ redirect.type }}</span>
+                                    <a href="{{ redirect.url }}" target="_blank" class="redirect-url" title="{{ redirect.url }}">{{ redirect.url }}</a>
+                                    <span class="redirect-time">{{ redirect.timestamp }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <button class="copy-button" data-content="security">Copy Info</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="server">
+                <div class="info-card">
+                    <h3>Server Location</h3>
+                    {% if result.ip_info %}
+                    <p><strong>IP Address</strong> {{ result.ip_info.ip|default('Unknown')|e }}</p>
+                    <p><strong>Location</strong> {{ result.ip_info.city|default('Unknown')|e }}{% if result.ip_info.region %}, {{ result.ip_info.region|e }}{% endif %}{% if result.ip_info.country %}, {{ result.ip_info.country|e }}{% endif %}</p>
+                    <p><strong>Service Provider</strong> {{ result.ip_info.org|default('Unknown')|e }}</p>
+                    {% else %}
+                    <p class="no-data">No server information available</p>
+                    {% endif %}
+                    <button class="copy-button" data-content="server">Copy Info</button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <div class="success-message" id="successMessage">Copied to clipboard!</div>
+    </div>
+
+    <script>
+        // QR Code download function
+        function downloadQR() {
+            const qrImage = document.querySelector('.qr-code');
+            const link = document.createElement('a');
+            link.download = 'qr-code.png';
+            link.href = qrImage.src;
+            link.click();
+        }
+
+        // Show loading state
+        const form = document.getElementById('analyzeForm');
+        const container = document.querySelector('.container');
+        
+        form?.addEventListener('submit', () => {
+            container.classList.add('loading');
+        });
+
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and content
+                tabs.forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                // Add active class to clicked tab and its content
+                tab.classList.add('active');
+                const contentId = tab.getAttribute('data-tab');
+                document.getElementById(contentId).classList.add('active');
+            });
+        });
+
+        // Copy functionality
+        const copyButtons = document.querySelectorAll('.copy-button');
+        const successMessage = document.getElementById('successMessage');
+
+        copyButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const section = button.getAttribute('data-content');
+                const content = button.parentElement.textContent;
+                navigator.clipboard.writeText(content).then(() => {
+                    successMessage.classList.add('show');
+                    setTimeout(() => {
+                        successMessage.classList.remove('show');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
