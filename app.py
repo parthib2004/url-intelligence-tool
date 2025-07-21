@@ -380,15 +380,16 @@ def generate_qr_code(url):
         print(f"Error generating QR code: {str(e)}")
         return None
 
-def get_metadata(url):
+def get_metadata(url, soup=None):
     try:
-        # Get the webpage content
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        if soup is None:
+            # Get the webpage content
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            response = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
         
         # Extract title and meta description
-        title = soup.title.string.strip() if soup.title else "N/A"
+        title = soup.title.string.strip() if soup.title and soup.title.string else url
         
         # --- Open Graph Extraction ---
         og_title = None
@@ -657,15 +658,58 @@ def index():
 
         result["url"] = url
         result["domain"] = domain
-        result["metadata"] = get_metadata(url)
-        result["whois"] = whois.whois(domain)
-        result["ip_info"] = get_ip_info(domain)
-        result["ssl_info"] = get_ssl_info(domain)
-        result["qr_code"] = generate_qr_code(url)
-        
-        # Calculate domain trust score
-        trust_data = calculate_trust_score(result)
-        result.update(trust_data)
+
+        try:
+            result["metadata"] = get_metadata(url, soup) if soup else {
+                'title': 'Could not fetch page',
+                'description': 'The page could not be accessed',
+                'keywords': [],
+                'og_title': None,
+                'og_description': None,
+                'og_image': None
+            }
+        except Exception as e:
+            print(f"Error getting metadata: {str(e)}")
+            result["metadata"] = {
+                'title': 'Error analyzing page',
+                'description': 'There was an error analyzing this page',
+                'keywords': [],
+                'og_title': None,
+                'og_description': None,
+                'og_image': None
+            }
+
+        try:
+            result["whois"] = whois.whois(domain)
+        except Exception as e:
+            print(f"Error getting WHOIS: {str(e)}")
+            result["whois"] = {'registrar': 'Unknown', 'creation_date': None, 'expiration_date': None, 'private': False}
+
+        try:
+            result["ip_info"] = get_ip_info(domain)
+        except Exception as e:
+            print(f"Error getting IP info: {str(e)}")
+            result["ip_info"] = None
+
+        try:
+            result["ssl_info"] = get_ssl_info(domain)
+        except Exception as e:
+            print(f"Error getting SSL info: {str(e)}")
+            result["ssl_info"] = None
+
+        try:
+            result["qr_code"] = generate_qr_code(url)
+        except Exception as e:
+            print(f"Error generating QR code: {str(e)}")
+            result["qr_code"] = None
+
+        try:
+            # Calculate domain trust score
+            trust_data = calculate_trust_score(result)
+            result.update(trust_data)
+        except Exception as e:
+            print(f"Error calculating trust score: {str(e)}")
+            result["trust_score"] = 0
         
         # Add tech stack detection
         if response and soup:
