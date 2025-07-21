@@ -6,3 +6,5 @@ qrcode
 whois
 pdfkit
 gunicorn
+dnspython
+python-dotenv
