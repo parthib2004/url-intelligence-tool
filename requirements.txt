@@ -3,7 +3,7 @@ requests
 beautifulsoup4
 nltk
 qrcode
-whois
+python-whois
 pdfkit
 gunicorn
 dnspython

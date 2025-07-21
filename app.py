@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, send_file
-import requests, socket, ssl, whois
+import requests, socket, ssl
+from whois import query as whois_query
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import nltk
@@ -680,7 +681,13 @@ def index():
             }
 
         try:
-            result["whois"] = whois.whois(domain)
+            whois_result = whois_query(domain)
+            result["whois"] = {
+                'registrar': whois_result.registrar if whois_result else 'Unknown',
+                'creation_date': whois_result.creation_date if whois_result else None,
+                'expiration_date': whois_result.expiration_date if whois_result else None,
+                'private': getattr(whois_result, 'private', False) if whois_result else False
+            }
         except Exception as e:
             print(f"Error getting WHOIS: {str(e)}")
             result["whois"] = {'registrar': 'Unknown', 'creation_date': None, 'expiration_date': None, 'private': False}
@@ -743,7 +750,13 @@ def download_pdf():
     result["url"] = url
     result["domain"] = domain
     result["metadata"] = get_metadata(url)
-    result["whois"] = whois.whois(domain)
+    whois_result = whois_query(domain)
+    result["whois"] = {
+        'registrar': whois_result.registrar if whois_result else 'Unknown',
+        'creation_date': whois_result.creation_date if whois_result else None,
+        'expiration_date': whois_result.expiration_date if whois_result else None,
+        'private': getattr(whois_result, 'private', False) if whois_result else False
+    }
     result["ip_info"] = get_ip_info(domain)
     result["ssl_info"] = get_ssl_info(domain)
     result["qr_code"] = generate_qr_code(url)
