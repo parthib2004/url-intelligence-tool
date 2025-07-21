@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, send_file
 import requests, socket, ssl
-from whois import query as whois_query
+import whois
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import nltk
@@ -681,12 +681,12 @@ def index():
             }
 
         try:
-            whois_result = whois_query(domain)
+            whois_result = whois.whois(domain)
             result["whois"] = {
-                'registrar': whois_result.registrar if whois_result else 'Unknown',
-                'creation_date': whois_result.creation_date if whois_result else None,
-                'expiration_date': whois_result.expiration_date if whois_result else None,
-                'private': getattr(whois_result, 'private', False) if whois_result else False
+                'registrar': whois_result.get('registrar', 'Unknown'),
+                'creation_date': whois_result.get('creation_date'),
+                'expiration_date': whois_result.get('expiration_date'),
+                'private': whois_result.get('name_servers') is None
             }
         except Exception as e:
             print(f"Error getting WHOIS: {str(e)}")
@@ -750,12 +750,12 @@ def download_pdf():
     result["url"] = url
     result["domain"] = domain
     result["metadata"] = get_metadata(url)
-    whois_result = whois_query(domain)
+    whois_result = whois.whois(domain)
     result["whois"] = {
-        'registrar': whois_result.registrar if whois_result else 'Unknown',
-        'creation_date': whois_result.creation_date if whois_result else None,
-        'expiration_date': whois_result.expiration_date if whois_result else None,
-        'private': getattr(whois_result, 'private', False) if whois_result else False
+        'registrar': whois_result.get('registrar', 'Unknown'),
+        'creation_date': whois_result.get('creation_date'),
+        'expiration_date': whois_result.get('expiration_date'),
+        'private': whois_result.get('name_servers') is None
     }
     result["ip_info"] = get_ip_info(domain)
     result["ssl_info"] = get_ssl_info(domain)
