@@ -3,6 +3,7 @@ requests
 beautifulsoup4
 nltk
 qrcode
+Pillow  # Required for QR code generation
 python-whois
 pdfkit
 gunicorn
