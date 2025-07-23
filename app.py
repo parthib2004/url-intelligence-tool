@@ -523,15 +523,33 @@ def get_ssl_info(domain):
 def get_ip_info(domain):
     try:
         ip = socket.gethostbyname(domain)
-        resp = requests.get(f"https://ipinfo.io/{ip}/json").json()
+        print('Looking up IP:', ip)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        resp = requests.get(f"https://ipapi.co/{ip}/json/", headers=headers).json()
+        print('ipapi.co response:', resp)
+        
+        if resp.get('error'):
+            # Fallback to ip-api.com if ipapi.co fails
+            resp = requests.get(f"http://ip-api.com/json/{ip}").json()
+            return {
+                "ip": ip,
+                "city": resp.get("city", "N/A"),
+                "region": resp.get("regionName", "N/A"),
+                "country": resp.get("country", "N/A"),
+                "org": resp.get("org", "N/A")
+            }
+            
         return {
             "ip": ip,
             "city": resp.get("city", "N/A"),
             "region": resp.get("region", "N/A"),
-            "country": resp.get("country", "N/A"),
+            "country": resp.get("country_name", "N/A"),
             "org": resp.get("org", "N/A")
         }
-    except:
+    except Exception as e:
+        print(f"Error in get_ip_info: {e}")
         return {}
 
 def trace_redirects(url, max_redirects=10):
