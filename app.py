@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, send_from_directory
 import requests, socket, ssl
 import whois
 from urllib.parse import urlparse, urljoin
@@ -736,6 +736,14 @@ def html_to_pdf_online(html):
         return response.content  # This is the PDF bytes
     else:
         raise Exception('PDF conversion failed: ' + response.text)
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
 
 @app.route("/", methods=["GET", "POST"])
 def index():
