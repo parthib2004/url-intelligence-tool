@@ -524,29 +524,110 @@ def get_ip_info(domain):
     try:
         ip = socket.gethostbyname(domain)
         print('Looking up IP:', ip)
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        resp = requests.get(f"https://ipapi.co/{ip}/json/", headers=headers).json()
-        print('ipapi.co response:', resp)
         
-        if resp.get('error'):
-            # Fallback to ip-api.com if ipapi.co fails
-            resp = requests.get(f"http://ip-api.com/json/{ip}").json()
+        # List of geolocation services to try in order (all free, no API key required)
+        services = [
+            {
+                'url': f'https://ipwho.is/{ip}',
+                'mapping': {
+                    'city': 'city',
+                    'region': 'region',
+                    'country': 'country',
+                    'org': 'connection.org'
+                }
+            },
+            {
+                'url': f'http://ip-api.com/json/{ip}',
+                'mapping': {
+                    'city': 'city',
+                    'region': 'regionName',
+                    'country': 'country',
+                    'org': 'org'
+                }
+            },
+            {
+                'url': f'https://ipapi.co/{ip}/json/',
+                'headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                'mapping': {
+                    'city': 'city',
+                    'region': 'region',
+                    'country': 'country_name',
+                    'org': 'org'
+                }
+            },
+            {
+                'url': f'https://get.geojs.io/v1/ip/geo/{ip}.json',
+                'mapping': {
+                    'city': 'city',
+                    'region': 'region',
+                    'country': 'country',
+                    'org': 'organization'
+                }
+            }
+        ]
+        
+        # Try each service until we get a valid response
+        for service in services:
+            try:
+                headers = service.get('headers', {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
+                
+                response = requests.get(service['url'], headers=headers, timeout=5)
+                resp = response.json()
+                
+                # Skip if service indicates an error
+                if resp.get('error') or resp.get('status') == 'fail':
+                    continue
+                    
+                # Function to get nested dict value
+                def get_nested(obj, path):
+                    parts = path.split('.')
+                    for part in parts:
+                        if isinstance(obj, dict):
+                            obj = obj.get(part, None)
+                        else:
+                            return None
+                    return obj
+                
+                result = {
+                    "ip": ip,
+                    "city": get_nested(resp, service['mapping']['city']) or "N/A",
+                    "region": get_nested(resp, service['mapping']['region']) or "N/A",
+                    "country": get_nested(resp, service['mapping']['country']) or "N/A",
+                    "org": get_nested(resp, service['mapping']['org']) or "N/A"
+                }
+                
+                # Only return if we got at least some location data
+                if result['city'] != "N/A" or result['region'] != "N/A" or result['country'] != "N/A":
+                    return result
+                    
+            except Exception as e:
+                print(f"Service {service['url']} failed: {str(e)}")
+                continue
+        
+        # If all services failed, try one last fallback to a simple geo service
+        try:
+            resp = requests.get(f'https://get.geojs.io/v1/ip/geo/{ip}.json').json()
             return {
                 "ip": ip,
-                "city": resp.get("city", "N/A"),
-                "region": resp.get("regionName", "N/A"),
-                "country": resp.get("country", "N/A"),
-                "org": resp.get("org", "N/A")
+                "city": resp.get('city', 'N/A'),
+                "region": resp.get('region', 'N/A'),
+                "country": resp.get('country', 'N/A'),
+                "org": resp.get('organization', 'N/A')
             }
+        except Exception as e:
+            print(f"Final fallback failed: {str(e)}")
             
+        # If everything failed, return default values
         return {
             "ip": ip,
-            "city": resp.get("city", "N/A"),
-            "region": resp.get("region", "N/A"),
-            "country": resp.get("country_name", "N/A"),
-            "org": resp.get("org", "N/A")
+            "city": "N/A",
+            "region": "N/A",
+            "country": "N/A",
+            "org": "N/A"
         }
     except Exception as e:
         print(f"Error in get_ip_info: {e}")
